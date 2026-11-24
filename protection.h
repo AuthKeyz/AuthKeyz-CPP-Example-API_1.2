@@ -57,16 +57,15 @@ int is_debugger_present()
 
 inline bool debug_perms_check() // check if the program has debug permissions, if it does then it returns true
 {
-	PCONTEXT ctx = PCONTEXT(LI_FN(VirtualAlloc).forwarded_safe_cached()(NULL, sizeof(ctx), MEM_COMMIT, PAGE_READWRITE));
-	RtlSecureZeroMemory(ctx, sizeof(CONTEXT));
+	CONTEXT ctx = { 0 };
+	RtlSecureZeroMemory(&ctx, sizeof(CONTEXT));
 
-	ctx->ContextFlags = CONTEXT_DEBUG_REGISTERS;
+	ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 
-	if (LI_FN(GetThreadContext).forwarded_safe_cached()(LI_FN(GetCurrentThread).forwarded_safe_cached()(), ctx) == 0)
-		return -1;
+	if (LI_FN(GetThreadContext).forwarded_safe_cached()(LI_FN(GetCurrentThread).forwarded_safe_cached()(), &ctx) == 0)
+		return false;
 
-
-	if (ctx->Dr0 != 0 || ctx->Dr1 != 0 || ctx->Dr2 != 0 || ctx->Dr3 != 0)
+	if (ctx.Dr0 != 0 || ctx.Dr1 != 0 || ctx.Dr2 != 0 || ctx.Dr3 != 0)
 		return TRUE;
 	else
 		return FALSE;
@@ -74,10 +73,13 @@ inline bool debug_perms_check() // check if the program has debug permissions, i
 
 void Protection_Loop()
 {
-	hide_thread(LI_FN(GetCurrentThread).forwarded_safe_cached());
-	if (thread_context()) *(uintptr_t*)(0) = 1;
-	if (remote_is_present()) *(uintptr_t*)(0) = 1;
-	if (is_debugger_present()) *(uintptr_t*)(0) = 1;
-	if (debug_perms_check()) *(uintptr_t*)(0) = 1;
-	std::this_thread::sleep_for(std::chrono::milliseconds(10)); // increase / decrease depending on how your computer handles it
+	hide_thread(LI_FN(GetCurrentThread).forwarded_safe_cached()());
+	while (true)
+	{
+		if (thread_context()) *(uintptr_t*)(0) = 1;
+		if (remote_is_present()) *(uintptr_t*)(0) = 1;
+		if (is_debugger_present()) *(uintptr_t*)(0) = 1;
+		if (debug_perms_check()) *(uintptr_t*)(0) = 1;
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
 }
